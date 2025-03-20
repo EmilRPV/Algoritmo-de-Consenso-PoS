@@ -1,0 +1,96 @@
+import hashlib
+import random
+from datetime import datetime
+
+class Validator:
+    def __init__(self, name, stake):
+        self.name = name
+        self.stake = stake  # Cantidad de monedas en staking
+
+class Block:
+    def __init__(self, index, previous_hash, data, validator):
+        self.index = index
+        self.timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.data = data
+        self.previous_hash = previous_hash
+        self.validator = validator  # Validador que firmó el bloque
+        self.hash = self.calculate_hash()
+
+    def calculate_hash(self):
+        value = f"{self.index}{self.timestamp}{self.data}{self.previous_hash}{self.validator.name}"
+        return hashlib.sha256(value.encode()).hexdigest()
+
+class Blockchain:
+    def __init__(self):
+        self.chain = [self.create_genesis_block()]
+        self.validators = []  # Lista de validadores registrados
+
+    def create_genesis_block(self):
+        """Crea el bloque génesis con un validador predeterminado"""
+        return Block(0, "0", "Genesis Block", Validator("Genesis", 0))
+
+    def add_validator(self, validator):
+        """Agrega un nuevo validador a la lista"""
+        self.validators.append(validator)
+
+    def select_validator(self):
+        """Selecciona un validador basado en la cantidad de stake"""
+        if not self.validators:
+            return None
+
+        total_stake = sum(v.stake for v in self.validators)
+        if total_stake == 0:
+            return None
+
+        return random.choices(self.validators, weights=[v.stake for v in self.validators])[0]
+
+    def add_block(self, data):
+        """Crea un nuevo bloque firmado por un validador seleccionado"""
+        validator = self.select_validator()
+        if not validator:
+            print(" No hay validadores con stake suficiente.")
+            return
+
+        previous_block = self.chain[-1]
+        new_block = Block(len(self.chain), previous_block.hash, data, validator)
+        self.chain.append(new_block)
+        print(f" Bloque {new_block.index} validado por: {validator.name}")
+
+    def is_valid(self):
+        """Verifica la integridad de la blockchain"""
+        for i in range(1, len(self.chain)):
+            current_block = self.chain[i]
+            previous_block = self.chain[i - 1]
+
+            if current_block.previous_hash != previous_block.hash:
+                return False
+            if current_block.hash != current_block.calculate_hash():
+                return False
+
+        return True
+
+#  Prueba de la blockchain con PoS
+print("Inicio: " + datetime.now().strftime("%H:%M:%S\n"))
+blockchain = Blockchain()
+
+# Agregar validadores con stake
+validator1 = Validator("Juan", 30)
+validator2 = Validator("Pedro", 20)
+validator3 = Validator("Maria", 50)
+
+blockchain.add_validator(validator1)
+blockchain.add_validator(validator2)
+blockchain.add_validator(validator3)
+
+# Agregar bloques
+blockchain.add_block("Transacción 1")
+#blockchain.add_block("Transacción 2")
+
+print("\nFin: " + datetime.now().strftime("%H:%M:%S\n"))
+
+# Mostrar los bloques generados
+for block in blockchain.chain:
+    print(f" Índice: {block.index}, Hash: {block.hash}, Validador: {block.validator.name}, Data: {block.data}")
+
+# Validar la cadena
+print("\nBlockchain válida:", blockchain.is_valid())
